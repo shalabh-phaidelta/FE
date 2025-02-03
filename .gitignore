@@ -169,3 +169,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+venv/
+*.pyc
+__pycache__/
+.ipynb_checkpoints/
