@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# Load the data from the CSV
+
 df = pd.read_csv("C:/Users/Neel/Desktop/Streamlit_Charts/stock_data.csv")
 
-# Ensure that the 'Date' column is in datetime format
+
 df['Date'] = pd.to_datetime(df['Date'])
 
 # Unpivot the data so that each stock name is turned into a row
@@ -21,7 +21,7 @@ stock_names = df_unpivoted['Clean_Stock_Name'].unique()
 min_date = min(df_unpivoted['Date']).date()  # Convert to datetime.date
 max_date = max(df_unpivoted['Date']).date()  # Convert to datetime.date
 
-# Custom CSS to reduce the size of the date pickers
+
 st.markdown("""
     <style>
         .stDateInput > label {
@@ -54,18 +54,18 @@ start_date_slider, end_date_slider = st.slider(
     format="YYYY-MM-DD"
 )
 
-# When the slider changes, update the date pickers
+
 start_date_picker = start_date_slider
 end_date_picker = end_date_slider
 
-# Convert start and end date pickers to pandas Timestamps to match the 'Date' column in df_unpivoted
+
 start_date = pd.to_datetime(start_date_picker)
 end_date = pd.to_datetime(end_date_picker)
 
 # Dropdown for selecting a stock name
 selected_stock = st.selectbox('Select a stock', stock_names)
 
-# Filter the data based on the selected stock and date range
+
 filtered_df = df_unpivoted[(df_unpivoted['Date'] >= start_date) & 
                             (df_unpivoted['Date'] <= end_date)]
 
@@ -108,13 +108,13 @@ if selected_stock:
         textposition='auto',
     ))
 
-    # Update layout for the bar chart
+   
     fig.update_layout(
         title='Top 3 Stocks by Average Price',
         template='plotly_dark'
     )
 
-    # Display the bar chart
+    # Display the bar chart in streamlit
     st.plotly_chart(fig)
 
 else:
