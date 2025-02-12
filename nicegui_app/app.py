@@ -71,14 +71,12 @@ def show_stock_data(_):
             # Charts for All Companies
             fig_line = center_title(px.line(stock_data, x='Date', y=companies, color_discrete_sequence=px.colors.qualitative.Safe), 'Stock Prices Over Time')
             fig_bar = center_title(px.bar(x=companies, y=[stock_data.iloc[-1][comp] for comp in companies], color_discrete_sequence=['#4c72b0']), 'Latest Closing Prices')
-            fig_pie = center_title(px.pie(values=[stock_data.iloc[-1][comp] for comp in companies], names=companies, hole=0.4, color_discrete_sequence=px.colors.sequential.Blues), 'Stock Price Distribution')
             fig_volatility = center_title(px.box(stock_data[companies]), 'Stock Price Volatility')
             fig_correlation = center_title(px.imshow(stock_data[companies].corr(), color_continuous_scale='RdBu'), 'Stock Correlation Heatmap')
 
             with chart_container:
                 ui.plotly(fig_line).classes('w-2/3')
                 ui.plotly(fig_bar).classes('w-2/3')
-                ui.plotly(fig_pie).classes('w-1/3')
                 ui.plotly(fig_volatility).classes('w-2/3')
                 ui.plotly(fig_correlation).classes('w-2/3')
 
@@ -108,15 +106,11 @@ def show_stock_data(_):
 
             # Charts for Selected Company
             fig_line = center_title(px.line(stock_filtered, x='Date', y=company, color_discrete_sequence=['#4c72b0']), f'{company} Stock Trend')
-            fig_bar = center_title(px.bar(stock_filtered, x='Date', y=company, color_discrete_sequence=['#4c72b0']), f'{company} Closing Prices')
-            fig_pie = center_title(px.pie(values=[stock_filtered[company].iloc[-1]], names=[company], hole=0.4, color_discrete_sequence=['#4c72b0']), 'Stock Price Share')
             fig_moving_avg = center_title(px.line(stock_filtered, x='Date', y=[company, f'{company} 7-Day MA'], color_discrete_sequence=['#4c72b0', '#ff6f61']), f'{company} 7-Day Moving Average')
             fig_histogram = center_title(px.histogram(stock_filtered, x=company, nbins=20, color_discrete_sequence=['#4c72b0']), f'{company} Price Distribution')
 
             with chart_container:
                 ui.plotly(fig_line).classes('w-2/3')
-                ui.plotly(fig_bar).classes('w-2/3')
-                ui.plotly(fig_pie).classes('w-1/3')
                 ui.plotly(fig_moving_avg).classes('w-2/3')
                 ui.plotly(fig_histogram).classes('w-2/3')
 
