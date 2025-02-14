@@ -1,124 +1,51 @@
-import pandas as pd
 from nicegui import ui
-import plotly.express as px
+import pandas as pd
+import httpx
+import asyncio
 
-# Load stock data
-try:
-    stock_data = pd.read_csv('../stock_data.csv', parse_dates=['Date'], dayfirst=True)
-except Exception as e:
-    ui.notify(f'Error loading stock data: {e}', type='negative')
+STOCK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "META"]  # Use working stock symbols
+API_URL = "http://127.0.0.1:8000/stocks/{}"  # FastAPI endpoint
 
-# Extract company names from CSV headers
-companies = stock_data.columns[1:].tolist()
+async def fetch_stock_data(symbol: str):
+    async with httpx.AsyncClient() as client:
+        response = await client.get(API_URL.format(symbol))
+        return response.json()
 
-# Calculate 7-day moving averages for each company (but don't show in table)
-for comp in companies:
-    stock_data[f'{comp} 7-Day MA'] = stock_data[comp].rolling(window=7).mean()
+async def show_stock_data(_):
+    stock_dfs = {}
+    
+    for symbol in STOCK_SYMBOLS:
+        data = await fetch_stock_data(symbol)
+        
+        if isinstance(data, dict) and "detail" in data:
+            ui.notify(f"Error fetching {symbol}: {data['detail']}")
+            continue  # Skip symbol if API fails
+        
+        df = pd.DataFrame(data).set_index("date")
+        stock_dfs[symbol] = df
+
+    if not stock_dfs:
+        ui.notify("No valid stock data fetched!")
+        return
+
+    # Merge all stock dataframes
+    merged_df = pd.concat(stock_dfs, axis=1, keys=stock_dfs.keys())
+
+    # Fix for KeyError: Ensure correct MultiIndex access
+    try:
+        merged_df = merged_df.xs('close', level=1, axis=1)
+    except KeyError:
+        ui.notify("Close price data not found in API response.")
+        return
+
+    # Display in UI
+    with ui.card():
+        ui.label("Stock Closing Prices")
+        ui.table(columns=[{"name": s, "label": s, "field": s} for s in STOCK_SYMBOLS],
+                 rows=merged_df.reset_index().to_dict(orient="records"))
 
 # UI Layout
-with ui.row().classes('items-center justify-center w-full'):
-    ui.label('📈 Stock Analysis Dashboard').classes('text-2xl font-bold mt-4 text-center')
-    selected_company = ui.select(['All Companies'] + companies, value='All Companies').classes('w-64 mt-2').props('label="Select a Company"')
+ui.label("Stock Data Viewer").classes("text-h4")
+ui.button("Load Stock Data", on_click=show_stock_data)
 
-# Containers for UI elements
-content_container = ui.column().classes('items-center')
-table_container = ui.column().classes('items-center w-full')
-pagination_container = ui.column().classes('items-center justify-center w-full')
-chart_container = ui.row().classes('w-full justify-around')
-
-ROWS_PER_PAGE = 10
-
-def center_title(fig, title):
-    fig.update_layout(
-        title={
-            'text': title, 
-            'x': 0.5, 
-            'xanchor': 'center',
-            'font': dict(size=18, family="Arial", weight="bold")  # bold title
-        }
-    )
-    return fig
-
-def show_stock_data(_):
-    company = selected_company.value
-    content_container.clear()
-
-    with content_container:
-        table_container.clear()
-        pagination_container.clear()
-        chart_container.clear()
-
-        if company == 'All Companies':
-            total_pages = (len(stock_data) + ROWS_PER_PAGE - 1) // ROWS_PER_PAGE
-
-            def update_table(page):
-                start = (page - 1) * ROWS_PER_PAGE
-                end = start + ROWS_PER_PAGE
-                page_data = stock_data.iloc[start:end]
-                table_container.clear()
-                with table_container:
-                    ui.label('Showing Data for All Companies').classes('text-lg font-semibold mt-2 text-center')
-                    ui.table(
-                        rows=page_data.to_dict('records'),
-                        columns=[{'name': col, 'label': col, 'field': col} for col in ['Date'] + companies]
-                    ).classes('w-3/4')
-
-            update_table(1)
-            with pagination_container:
-                p = ui.pagination(1, total_pages, direction_links=True)
-                p.on('update:model-value', lambda e: update_table(p.value))
-
-            # Charts for All Companies
-            fig_line = center_title(px.line(stock_data, x='Date', y=companies, color_discrete_sequence=px.colors.qualitative.Safe), 'Stock Prices Over Time')
-            fig_bar = center_title(px.bar(x=companies, y=[stock_data.iloc[-1][comp] for comp in companies], color_discrete_sequence=['#4c72b0']), 'Latest Closing Prices')
-            fig_volatility = center_title(px.box(stock_data[companies]), 'Stock Price Volatility')
-            fig_correlation = center_title(px.imshow(stock_data[companies].corr(), color_continuous_scale='RdBu'), 'Stock Correlation Heatmap')
-
-            with chart_container:
-                ui.plotly(fig_line).classes('w-2/3')
-                ui.plotly(fig_bar).classes('w-2/3')
-                ui.plotly(fig_volatility).classes('w-2/3')
-                ui.plotly(fig_correlation).classes('w-2/3')
-
-        elif company in companies:
-            stock_filtered = stock_data[['Date', company, f'{company} 7-Day MA']]
-            total_pages = (len(stock_filtered) + ROWS_PER_PAGE - 1) // ROWS_PER_PAGE
-
-            def update_table(page):
-                start = (page - 1) * ROWS_PER_PAGE
-                end = start + ROWS_PER_PAGE
-                page_data = stock_filtered[['Date', company]].iloc[start:end]  # No 7-Day MA column
-                table_container.clear()
-                with table_container:
-                    ui.label(f'Showing Data for {company}').classes('text-lg font-semibold mt-2 text-center')
-                    ui.table(
-                        rows=page_data.to_dict('records'),
-                        columns=[
-                            {'name': 'Date', 'label': 'Date', 'field': 'Date'},
-                            {'name': company, 'label': 'Closing Price', 'field': company}
-                        ]
-                    ).classes('w-3/4')
-
-            update_table(1)
-            with pagination_container:
-                p = ui.pagination(1, total_pages, direction_links=True)
-                p.on('update:model-value', lambda e: update_table(p.value))
-
-            # Charts for Selected Company
-            fig_line = center_title(px.line(stock_filtered, x='Date', y=company, color_discrete_sequence=['#4c72b0']), f'{company} Stock Trend')
-            fig_moving_avg = center_title(px.line(stock_filtered, x='Date', y=[company, f'{company} 7-Day MA'], color_discrete_sequence=['#4c72b0', '#ff6f61']), f'{company} 7-Day Moving Average')
-            fig_histogram = center_title(px.histogram(stock_filtered, x=company, nbins=20, color_discrete_sequence=['#4c72b0']), f'{company} Price Distribution')
-
-            with chart_container:
-                ui.plotly(fig_line).classes('w-2/3')
-                ui.plotly(fig_moving_avg).classes('w-2/3')
-                ui.plotly(fig_histogram).classes('w-2/3')
-
-# Attach event listener to dropdown
-selected_company.on('update:model-value', show_stock_data)
-
-# Initial load trigger to show all data
-show_stock_data(None)
-
-# Run the UI
-ui.run()
+ui.run(port=8080)
