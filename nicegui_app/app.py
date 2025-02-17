@@ -43,7 +43,7 @@ def center_title(fig, title):
             'text': title, 
             'x': 0.5, 
             'xanchor': 'center',
-            'font': dict(size=18, family="Arial", weight="bold")
+            'font': dict(size=18, family="Arial")
         }
     )
     return fig
