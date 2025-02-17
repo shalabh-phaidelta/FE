@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 8080
 
 # Run the NiceGUI app
-CMD ["python", "nicegui_app/app.py"]
+CMD ["sh", "-c", "cd nicegui_app && python app.py"]
