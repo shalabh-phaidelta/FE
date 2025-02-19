@@ -20,4 +20,4 @@ EXPOSE 8501
 # Command to run Streamlit when the container starts
 
 # Use the full path to Streamlit in CMD
-CMD ["streamlit", "run", "/app/Weather_App_V2.py"]
+CMD ["streamlit", "run", "shalabh-phaidelta/FE/app/Weather_App_V2.py"]
