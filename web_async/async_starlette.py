@@ -1,14 +1,23 @@
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
-import uvicorn
+from starlette.routing import Route
 import asyncio
 
-app = Starlette()
-
-@app.route("/")
 async def homepage(request):
-    await asyncio.sleep(2)
-    return JSONResponse({"message": "Hello, async world!"})
+    return JSONResponse({'message': 'Hello from Starlette!'})
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+async def background_task():
+    await asyncio.sleep(5)
+    print("Background task completed!")
+
+async def start_background_task(request):
+    asyncio.create_task(background_task())  # Runs in the background
+    return JSONResponse({'message': 'Task started in the background'})
+
+app = Starlette(
+    debug=True,
+    routes=[
+        Route("/", homepage),
+        Route("/run-task", start_background_task)
+    ],
+)
