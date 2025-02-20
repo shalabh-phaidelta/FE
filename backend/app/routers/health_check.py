@@ -1,11 +1,10 @@
+from app.logging_config import logger
 from fastapi import APIRouter
 
+router = APIRouter()
 
-router = APIRouter(
-    prefix="/health_check",
-    tags = ["Health Check"]
-)
 
 @router.get("/health")
-async def health_check():
-    return {"status" : "ok"}
+async def health_check() -> dict:
+    logger.info("Helath check accessed")
+    return {"status": "ok"}

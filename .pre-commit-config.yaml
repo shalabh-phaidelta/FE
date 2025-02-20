@@ -1,0 +1,25 @@
+repos:
+  # Black: Auto-formats code with 100-char line length
+  - repo: https://github.com/psf/black
+    rev: 25.1.0  # Use the latest stable version
+    hooks:
+      - id: black
+        args: ["--line-length=100"]
+
+  # Flake8: Lints code with max-line-length=100 to match Black
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.2
+    hooks:
+      - id: flake8
+        args: ["--max-line-length=100", "--ignore=E203,W503"]
+
+  # Mypy: Type checking 
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0  # Use the latest stable version
+    hooks:
+      - id: mypy
+        args: 
+          - "--ignore-missing-imports"  # Don't check dependencies
+          - "--disallow-untyped-defs"   # Require return type annotations
+          - "--warn-unused-ignores"     # Warn about unnecessary 'type: ignore' comments
+          - "--disable-error-code=import-untyped"  # Ignore [import-untyped] errors
