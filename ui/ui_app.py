@@ -48,6 +48,35 @@ def show_stock_data() -> None:
     df.rename(columns={"date": "Date", "price": "Price"}, inplace=True)
     table_data = df.to_dict(orient="records")
 
+    # Calculate the number of pages
+    total_pages = (len(table_data) // 10) + (1 if len(table_data) % 10 != 0 else 0)
+    pagination._props["max"] = total_pages  # Update the max pages dynamically
+    pagination.update()
+
+    def update_table(page: int) -> None:
+        start_index = (page - 1) * 10
+        end_index = start_index + 10
+        paginated_data = table_data[start_index:end_index]
+
+        table_container.clear()
+        with table_container:
+            ui.label(f"Showing Data for {data['ticker']}").classes(
+                "text-lg font-semibold mt-2 text-center"
+            )
+            ui.table(
+                rows=paginated_data,
+                columns=[
+                    {"name": "Date", "label": "Date", "field": "Date"},
+                    {"name": "Price", "label": "Closing Price", "field": "Price"},
+                ],
+            ).classes("w-3/4")
+
+    # Initial table update
+    update_table(pagination.value)
+
+    # Bind pagination to update the table
+    pagination.on("update:model-value", lambda e: update_table(e.args))
+
     content_container.clear()
     with content_container:
         table_container.clear()
@@ -58,7 +87,7 @@ def show_stock_data() -> None:
                 "text-lg font-semibold mt-2 text-center"
             )
             ui.table(
-                rows=table_data,
+                rows=table_data[:10],  # Show first 10 rows initially
                 columns=[
                     {"name": "Date", "label": "Date", "field": "Date"},
                     {"name": "Price", "label": "Closing Price", "field": "Price"},
@@ -92,6 +121,12 @@ ui.button("Fetch Data", on_click=show_stock_data).classes("mt-4")
 
 content_container = ui.column().classes("items-center w-full")
 table_container = ui.column().classes("items-center w-full")
+
+# Add pagination inside a centered row
+with ui.row().classes("justify-center w-full mt-4"):
+    pagination = ui.pagination(1, 1, direction_links=True)
+    # ui.label().bind_text_from(pagination, "value", lambda v: f"Page {v}")
+
 chart_container = ui.row().classes("w-full justify-around")
 
 ui.run(port=8080)
