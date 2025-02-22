@@ -5,6 +5,7 @@ import plotly.express as px
 from typing import Dict, Any
 
 BACKEND_URL = "http://backend:8000/v1"
+TICKERS = ["TCS.NS", "INFY.NS", "RELIANCE.NS", "HDFCBANK.NS", "DMART.NS"]
 
 
 def fetch_stock_data(ticker: str, start_date: str, end_date: str) -> Dict[str, Any]:
@@ -22,13 +23,13 @@ def center_title(fig: px.line, title: str) -> px.line:
             "x": 0.5,
             "xanchor": "center",
             "font": dict(size=18, family="Arial"),
-        }
+        },
     )
     return fig
 
 
 def show_stock_data() -> None:
-    ticker: str = ticker_input.value.strip().upper()
+    ticker: str = ticker_input.value
     start_date: str = start_date_input.value
     end_date: str = end_date_input.value
 
@@ -81,9 +82,9 @@ def show_stock_data() -> None:
 
 # UI Layout
 with ui.row().classes("items-center justify-center w-full"):
-    ui.label("📈 Stock Price Dashboard").classes("text-2xl font-bold mt-4 text-center")
+    ui.label("\U0001f4c8 Stock Price Dashboard").classes("text-2xl font-bold mt-4 text-center")
 
-ticker_input = ui.input("Ticker Symbol").classes("w-1/4")
+ticker_input = ui.select(TICKERS).classes("w-1/4")
 start_date_input = ui.input("Start Date (YYYY-MM-DD)").classes("w-1/4")
 end_date_input = ui.input("End Date (YYYY-MM-DD)").classes("w-1/4")
 
