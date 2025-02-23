@@ -1,9 +1,10 @@
 import random
 from datetime import datetime, timedelta
 
-from app.logging_config import logger
+from app.logging_config import get_logger
 from fastapi import APIRouter, Query
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 
