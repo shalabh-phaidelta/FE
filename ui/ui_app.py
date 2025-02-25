@@ -1,4 +1,4 @@
-import requests
+import httpx
 from nicegui import ui
 import pandas as pd
 import plotly.express as px
@@ -8,15 +8,19 @@ BACKEND_URL = "http://backend:8000/v1"
 TICKERS = ["TCS.NS", "INFY.NS", "RELIANCE.NS", "HDFCBANK.NS", "DMART.NS"]
 
 
-def fetch_stock_data(ticker: str, start_date: str, end_date: str) -> Dict[str, Any]:
-    response = requests.get(
-        f"{BACKEND_URL}/price_history",
-        params={"ticker": ticker, "start_date": start_date, "end_date": end_date},
-    )
-    return response.json()
+async def fetch_stock_data(ticker: str, start_date: str, end_date: str) -> Dict[str, Any]:
+    # Fetch stock data asynchronously using httpx.
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{BACKEND_URL}/price_history",
+            params={"ticker": ticker, "start_date": start_date, "end_date": end_date},
+        )
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        return response.json()
 
 
 def center_title(fig: px.line, title: str) -> px.line:
+    # Center the title of a Plotly figure.
     fig.update_layout(
         title={
             "text": title,
@@ -28,7 +32,8 @@ def center_title(fig: px.line, title: str) -> px.line:
     return fig
 
 
-def show_stock_data() -> None:
+async def show_stock_data() -> None:
+    # Fetch and display stock data asynchronously.
     ticker: str = ticker_input.value
     start_date: str = start_date_input.value
     end_date: str = end_date_input.value
@@ -38,7 +43,11 @@ def show_stock_data() -> None:
         return
 
     with ui.spinner():
-        data: Dict[str, Any] = fetch_stock_data(ticker, start_date, end_date)
+        try:
+            data: Dict[str, Any] = await fetch_stock_data(ticker, start_date, end_date)
+        except Exception as e:
+            ui.notify(f"Failed to fetch data: {e}", type="negative")
+            return
 
     if "error" in data:
         ui.notify(data["error"], type="negative")
@@ -54,6 +63,7 @@ def show_stock_data() -> None:
     pagination.update()
 
     def update_table(page: int) -> None:
+        # Update the table with paginated data.
         start_index = (page - 1) * 10
         end_index = start_index + 10
         paginated_data = table_data[start_index:end_index]
