@@ -1,0 +1,26 @@
+version: "3"
+
+services:
+  backend:
+    build: ./backend
+    container_name: fastapi-container
+    ports:
+      - "8000:8000"
+    # volumes:
+    #   - ./app/logs:/app/logs
+    networks:
+      - app-network
+
+  frontend:
+    build: ./ui
+    container_name: nicegui_container
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
