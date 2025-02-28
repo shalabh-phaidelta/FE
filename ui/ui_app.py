@@ -1,96 +1,142 @@
-# import json
-
-# import pandas as pd
-# import plotly.express as px
-import requests
+import httpx
 from nicegui import ui
+import pandas as pd
+import plotly.express as px
+from typing import Dict, Any
 
-response = requests.get("http://backend:8000/v1/health")
-data = response.json()
+BACKEND_URL = "http://backend:8000/v1"
+TICKERS = ["TCS.NS", "INFY.NS", "RELIANCE.NS", "HDFCBANK.NS", "DMART.NS"]
 
-# Display data from FastAPI
-ui.label(f"Received from API: {data['status']}")
 
-ui.run(port=8080)  # NiceGUI runs on port 8080
+async def fetch_stock_data(ticker: str, start_date: str, end_date: str) -> Dict[str, Any]:
+    # Fetch stock data asynchronously using httpx.
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{BACKEND_URL}/price_history",
+            params={"ticker": ticker, "start_date": start_date, "end_date": end_date},
+        )
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        return response.json()
 
-# Load stock data safely
-# json_data = None
-# try:
-#     with open('../stock_data.json', 'r') as file:
-#         json_data = json.load(file)
 
-#     stock_data = json_data.get("price", [])  # Extract price history, default to empty list
-#     company_name = json_data.get("ticker", "Unknown").upper()  # Default to "Unknown" if missing
-# except Exception as e:
-#     ui.notify(f'Error loading stock data: {e}', type='negative')
-#     stock_data = []
-#     company_name = "Unknown"  # Fallback if JSON fails to load
+def center_title(fig: px.line, title: str) -> px.line:
+    # Center the title of a Plotly figure.
+    fig.update_layout(
+        title={
+            "text": title,
+            "x": 0.5,
+            "xanchor": "center",
+            "font": dict(size=18, family="Arial"),
+        },
+    )
+    return fig
 
-# # Convert JSON to DataFrame format
-# if stock_data:
-#     df = pd.DataFrame(stock_data)
-#     if not {"date", "price"}.issubset(df.columns):
-#         ui.notify("JSON data does not contain required columns.", type="negative")
-#         df = pd.DataFrame(columns=["date", "price"])  # Empty dataframe fallback
-# else:
-#     df = pd.DataFrame(columns=["date", "price"])  # Handle empty data case
 
-# df.rename(columns={"date": "Date", "price": "Price"}, inplace=True)  # Ensure correct column names
+async def show_stock_data() -> None:
+    # Fetch and display stock data asynchronously.
+    ticker: str = ticker_input.value
+    start_date: str = start_date_input.value
+    end_date: str = end_date_input.value
 
-# table_data = df.to_dict(orient="records")  # Convert back to list of dictionaries
+    if not ticker or not start_date or not end_date:
+        ui.notify("Please enter all required fields!", type="negative")
+        return
 
-# # UI Layout
-# with ui.row().classes('items-center justify-center w-full'):
-#     ui.label(f'📈 {company_name} Stock Analysis Dashboard').
-#                       classes('text-2xl font-bold mt-4 text-center')
+    with ui.spinner():
+        try:
+            data: Dict[str, Any] = await fetch_stock_data(ticker, start_date, end_date)
+        except Exception as e:
+            ui.notify(f"Failed to fetch data: {e}", type="negative")
+            return
 
-# content_container = ui.column().classes('items-center')
-# table_container = ui.column().classes('items-center w-full')
-# chart_container = ui.row().classes('w-full justify-around')
+    if "error" in data:
+        ui.notify(data["error"], type="negative")
+        return
 
-# def center_title(fig, title):
-#     fig.update_layout(
-#         title={
-#             'text': title,
-#             'x': 0.5,
-#             'xanchor': 'center',
-#             'font': dict(size=18, family="Arial")
-#         }
-#     )
-#     return fig
+    df: pd.DataFrame = pd.DataFrame(data["price"])
+    df.rename(columns={"date": "Date", "price": "Price"}, inplace=True)
+    table_data = df.to_dict(orient="records")
 
-# def show_stock_data():
-#     content_container.clear()
-#     with content_container:
-#         table_container.clear()
-#         chart_container.clear()
+    # Calculate the number of pages
+    total_pages = (len(table_data) // 10) + (1 if len(table_data) % 10 != 0 else 0)
+    pagination._props["max"] = total_pages  # Update the max pages dynamically
+    pagination.update()
 
-#         if df.empty:
-#             ui.notify("No stock data available.", type="warning")
-#             return  # Stop execution if no data
+    def update_table(page: int) -> None:
+        # Update the table with paginated data.
+        start_index = (page - 1) * 10
+        end_index = start_index + 10
+        paginated_data = table_data[start_index:end_index]
 
-#         # Display stock price table
-#         with table_container:
-#             ui.label(f'Showing Data for {company_name}').
-#                           classes('text-lg font-semibold mt-2 text-center')
-#             ui.table(
-#                 rows=table_data,
-#                 columns=[
-#                     {'name': 'Date', 'label': 'Date', 'field': 'Date'},
-#                     {'name': 'Price', 'label': 'Closing Price', 'field': 'Price'}
-#                 ]
-#             ).classes('w-3/4')
+        table_container.clear()
+        with table_container:
+            ui.label(f"Showing Data for {data['ticker']}").classes(
+                "text-lg font-semibold mt-2 text-center"
+            )
+            ui.table(
+                rows=paginated_data,
+                columns=[
+                    {"name": "Date", "label": "Date", "field": "Date"},
+                    {"name": "Price", "label": "Closing Price", "field": "Price"},
+                ],
+            ).classes("w-3/4")
 
-#         # Generate stock price trend chart
-#         fig_line = center_title(px.line(df, x='Date', y='Price', markers=True,
-#                                         color_discrete_sequence=['#4c72b0']),
-#                                 f'{company_name} Stock Trend')
+    # Initial table update
+    update_table(pagination.value)
 
-#         with chart_container:
-#             ui.plotly(fig_line).classes('w-2/3')
+    # Bind pagination to update the table
+    pagination.on("update:model-value", lambda e: update_table(e.args))
 
-# # Load and show data on UI start
-# show_stock_data()
+    content_container.clear()
+    with content_container:
+        table_container.clear()
+        chart_container.clear()
 
-# # Run the UI
-# ui.run()
+        with table_container:
+            ui.label(f"Showing Data for {data['ticker']}").classes(
+                "text-lg font-semibold mt-2 text-center"
+            )
+            ui.table(
+                rows=table_data[:10],  # Show first 10 rows initially
+                columns=[
+                    {"name": "Date", "label": "Date", "field": "Date"},
+                    {"name": "Price", "label": "Closing Price", "field": "Price"},
+                ],
+            ).classes("w-3/4")
+
+        fig_line: px.line = center_title(
+            px.line(
+                df,
+                x="Date",
+                y="Price",
+                markers=True,
+                color_discrete_sequence=["#4c72b0"],
+            ),
+            f"{data['ticker']} Stock Trend",
+        )
+
+        with chart_container:
+            ui.plotly(fig_line).classes("w-2/3")
+
+
+# UI Layout
+with ui.row().classes("items-center justify-center w-full"):
+    ui.label("\U0001f4c8 Stock Price Dashboard").classes("text-2xl font-bold mt-4 text-center")
+
+ticker_input = ui.select(TICKERS).classes("w-1/4")
+start_date_input = ui.input("Start Date (YYYY-MM-DD)").classes("w-1/4")
+end_date_input = ui.input("End Date (YYYY-MM-DD)").classes("w-1/4")
+
+ui.button("Fetch Data", on_click=show_stock_data).classes("mt-4")
+
+content_container = ui.column().classes("items-center w-full")
+table_container = ui.column().classes("items-center w-full")
+
+# Add pagination inside a centered row
+with ui.row().classes("justify-center w-full mt-4"):
+    pagination = ui.pagination(1, 1, direction_links=True)
+    # ui.label().bind_text_from(pagination, "value", lambda v: f"Page {v}")
+
+chart_container = ui.row().classes("w-full justify-around")
+
+ui.run(port=8080)
